@@ -1,6 +1,7 @@
 package pkg.member;
 
 public class MemberVO {
+	private String memberidx;
 	private String memberid;
 	private String memberpass;
 	private String memberbirth;
@@ -12,6 +13,14 @@ public class MemberVO {
 	private String memberhob1;
 	private String memberhob2;
 	private String memberhob3;
+	
+	
+	public String getMemberidx() {
+		return memberidx;
+	}
+	public void setMemberidx(String memberidx) {
+		this.memberidx = memberidx;
+	}
 	
 	public String getMemberauth() {
 		return memberauth;

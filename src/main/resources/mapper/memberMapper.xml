@@ -2,8 +2,9 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="member" >
+	<!-- 멤버 로그인 체크(id,pass) -->
 	<select statementType="CALLABLE" parameterType="pkg.member.MemberVO" id="loginchk">
-		{
+		{  
 			call PKG_MEMBER.PROC_MEMEBER_LOGIN(
 			#{memberid, jdbcType = VARCHAR, mode = IN}
 			,#{memberpass, jdbcType = VARCHAR, mode = IN}
@@ -13,18 +14,19 @@
 		} 
 	</select>
 
+	<!-- 멤버 닉네임, ID 체크 -->
 	<select statementType="CALLABLE" parameterType="pkg.member.MemberVO" id="chk">
 		{
 			call PKG_MEMBER.PROC_MEMBER_CHK(
 				#{memberid, jdbcType = VARCHAR, mode = IN}
-				,#{memberpass, jdbcType = VARCHAR, mode = IN}
+				,#{membernickname, jdbcType = VARCHAR, mode = IN}
 				,#{result, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
 				,#{error, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
 				,#{error2, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
 			)
 		} 
 	</select>
-
+	<!-- 멤버 회원가입 -->
 	<select statementType="CALLABLE" parameterType="pkg.member.MemberVO" id="insmem">
 	{
 		call PKG_MEMBER.PROC_MEMBER_INS (
@@ -45,7 +47,7 @@
 	}
  	
  	</select>
- 	
+ 	<!-- 멤버수정(회원페이지) -->
 	<select statementType="CALLABLE" parameterType="pkg.member.MemberVO" id="updatemem">
 	{
 		call PKG_MEMBER.PROC_MEMBER_UPDATE (
@@ -65,8 +67,28 @@
 	}
  	
  	</select>
+ 	<!-- 멤버수정 (관리자페이지) -->
+	<select statementType="CALLABLE" parameterType="pkg.member.MemberVO" id="updatememlist" resultMap="memberMap">
+	{
+		call PKG_MEMBER.PROC_MEMBER_ADMIN_UPDATE (
+			#{memberid, jdbcType = VARCHAR, mode = IN}
+			,#{memberprofile, jdbcType = VARCHAR, mode = IN}
+			,#{membernickname, jdbcType = VARCHAR, mode = IN}
+			,#{memberauth, jdbcType = VARCHAR, mode = IN}			
+			,#{memberbirth, jdbcType = VARCHAR, mode = IN}
+			,#{membergender, jdbcType = VARCHAR, mode = IN}
+			,#{memberhob1, jdbcType = VARCHAR, mode = IN}
+			,#{memberhob2, jdbcType = VARCHAR, mode = IN}
+			,#{memberhob3, jdbcType = VARCHAR, mode = IN}
+			,#{result, mode=OUT, jdbcType=CURSOR, javaType=ResultSet, resultMap=memberMap}
+			,#{error, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
+			,#{error2, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
+		)
+		
+	}
  	
- 	
+ 	</select>
+ 	<!-- 멤버정보(회원페이지) -->
 	<select statementType="CALLABLE" parameterType="pkg.member.MemberVO" id="selmem" resultMap="memberMap">
 		{
 			call PKG_MEMBER.PROC_MEMBER_SEL(
@@ -78,7 +100,21 @@
 		} 
 	</select>
 	
+	<!--회원정보 (관리자페이지)  -->
+	<select statementType="CALLABLE" parameterType="string" id="memberlist" resultMap="memberMap">
+		{
+			call PKG_MEMBER.PROC_MEMBER_ADMIN_SEL(
+				#{pagenum, jdbcType = VARCHAR, mode = IN}
+				,#{result, mode=OUT, jdbcType=CURSOR, javaType=ResultSet, resultMap=memberMap}
+				,#{maxpage, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
+				,#{error, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
+				,#{errormsg, mode=OUT, jdbcType=VARCHAR, javaType=java.lang.String}
+			)
+		} 
+	</select>
+	<!-- RESULT MAP MEMBER -->
 	<resultMap type="pkg.member.MemberVO" id="memberMap">
+ 		<result column="MEMBERIDX" property="memberidx"/> 		
  		<result column="USER_ID" property="memberid"/>
  		<result column="MEMBERBIRTH" property="memberbirth"/>
  		<result column="MEMBERPROFILE" property="memberprofile"/>

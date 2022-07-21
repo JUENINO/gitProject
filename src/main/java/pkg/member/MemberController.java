@@ -13,21 +13,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 public class MemberController {
 
    
-    @RequestMapping("login")
+    @RequestMapping("login") // 로그인  -> 로그인페이지
     public String login (Model model, HttpServletRequest request, HttpServletResponse response) {
-    	String prevPage = "test";
-    	System.out.println("call login");
     	return "login";
     }
     @RequestMapping("logout")
-    public String logout (HttpServletRequest request) {
+    public String logout (HttpServletRequest request) { // 로그아웃
     	System.out.println("call logout");
     	HttpSession session = request.getSession();
     	session.invalidate();
         return "redirect:"+(String)request.getHeader("Referer");
     };
     @RequestMapping("register")
-    public String register () {
+    public String register () { // 회원가입
 
         return "register";
     }

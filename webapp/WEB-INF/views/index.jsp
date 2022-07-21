@@ -7,8 +7,10 @@
 <title>index.jsp</title>
 </head> 
 <body>
+
     <%@ include file="../comp/header.jsp" %>
     <div class="container-section">
+
         <div class="container">
             <div><a href="moviegrid">영화관리테스트</a></div>
             <div><a href="test2">asasas</a></div>

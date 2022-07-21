@@ -28,10 +28,11 @@
 	        <div class="after-login user-profile">
 	        	<div><%= session.getAttribute("memberProfile")%></div>
 	        	<div class="menu-wrapper">
-	        		<div class="menu my-profile"><a href="myform?memberid=<%=session.getAttribute("memberid")%>">내 정보</a></div>
+	        		<div class="menu my-profile"><a href="profile?memberid=<%=session.getAttribute("memberid")%>">내 정보</a></div>
 	        		<div class="menu logout"><a href="logout">로그아웃</a></div>
 	        	</div>
 	        </div>
+
         <%} %>
         	
         </div>
@@ -61,7 +62,7 @@
                     let HTML = res.result.map( e => `<div class="ar" data-docid=\${e.DOCID}>\${e.title}</div>`).join("");
                     document.querySelector(".auto-completaion").innerHTML = HTML;
                     acArray = [ document.querySelector(".search-input"), ...document.querySelectorAll(".ar") ];
-                    acIndex = 0;
+  			        acIndex = 0;
                     acLength = acArray.length;
                 },
                 error : function (err) {

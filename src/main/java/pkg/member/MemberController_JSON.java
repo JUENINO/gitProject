@@ -1,20 +1,18 @@
 package pkg.member;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
+
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 @RestController
@@ -42,7 +40,6 @@ public class MemberController_JSON {
 		
 	}
 	// 아이디 중복 체크용
-	// TODO : 메서드 명, 요청 인자 명 너무 헷갈림, 중복체크면 overlap-check 등
 	@PostMapping("chk")
 	public String chk(@RequestBody Map<String,Object> map) {
 		
@@ -51,17 +48,12 @@ public class MemberController_JSON {
 		
 		return  obj.toString();
 	}
-	//
-	@PostMapping("test2")
+	//회원가입
+	@PostMapping("register")
 	public String gaip(@RequestBody Map<String,Object> map) {
 		Map<String, Object> jmap = (Map<String, Object>) map.get("data");
-		System.out.println(map.get("data"));
-		System.out.println(jmap);
-		System.out.println("-------------");
 		String memberid = (String)jmap.get("memberid");
-		System.out.println(memberid);
-		System.out.println(memberService.insmem(jmap));
-		System.out.println("----------------");
+	
 		if (memberid.equals(memberService.insmem(jmap))) {
 			
 			return "{\"result\": \"SUC\" }";
@@ -72,6 +64,10 @@ public class MemberController_JSON {
 		return "{\"result\": \"FAIL\" }";
 		
 	}
+
+
+	// 회원정보수정(회원용)
+
 	@PostMapping("myform") // profile // profile?memberId=this9999
 	public String myform(@RequestBody Map<String,Object> map) {
 		List<MemberVO> memlist = (List<MemberVO>)memberService.selmem(map);
@@ -105,6 +101,7 @@ public class MemberController_JSON {
 		System.out.println("-------");
 		return obj.toString();
 	}
+
 	@PostMapping("updatemember")
 	public String updateprofile(@RequestBody Map<String,Object> map) {
 		System.out.println("----update controller");
@@ -119,10 +116,53 @@ public class MemberController_JSON {
 		System.out.println("실패");
 		return "{\"result\": \"FAIL\" }";
 	}
+	//관리자 페이지 멤버리스트 
+	@PostMapping("memberform")
+	public String memberform(@RequestBody Map<String, Object> map) {
+			System.out.println("pageNum : " +map.get("pagenum"));
+			Map<String, Object> memberform = memberService.showmemberList(map);
+			List<MemberVO> allmemlist = (List<MemberVO>) memberform.get("result");
+			JsonObject resultobj = new JsonObject();
+			JsonArray arr = new JsonArray();			
+			for(MemberVO vo : allmemlist) {
+				JsonObject obj = new JsonObject();
+				obj.addProperty("memberidx", vo.getMemberidx());
+				obj.addProperty("memberid", vo.getMemberid());
+				obj.addProperty("memberbirth", vo.getMemberbirth());
+				obj.addProperty("memberauth", vo.getMemberauth());
+				obj.addProperty("membergender", vo.getMembergender());
+				obj.addProperty("memberhob1", vo.getMemberhob1());
+				obj.addProperty("memberhob2", vo.getMemberhob2());
+				obj.addProperty("memberhob3", vo.getMemberhob3());
+				obj.addProperty("membernickname", vo.getMembernickname());
+				obj.addProperty("memberprofile", vo.getMemberprofile());
+				obj.addProperty("membersigndate", vo.getMembersigndate());
+				arr.add(obj);
+				System.out.println("----");
+				System.out.println(vo.getMemberidx());
+				System.out.println(vo.getMemberid());
+				System.out.println(vo.getMemberbirth());
+				System.out.println(vo.getMemberauth());
+				System.out.println(vo.getMembergender());
+				System.out.println(vo.getMemberhob1());
+				System.out.println(vo.getMemberhob2());
+				System.out.println(vo.getMemberhob3());
+				System.out.println(vo.getMembernickname());
+				System.out.println(vo.getMemberprofile());
+				System.out.println(vo.getMembersigndate());	
+				System.out.println("----");
+			}
+			System.out.println("------jsoncontroller");
+			resultobj.add("result", arr);
+			resultobj.addProperty("maxpage", (String) map.get("maxpage"));
+			System.out.println(map.get("maxpage"));
+			
+			return resultobj.toString();
+			//return new Gson().toJson(allmemlist);
+	}
 	
-	
-	
-	@PostMapping("profile")
+	//멤버 정보보기(다른 고객, 고객 본인)
+	@PostMapping("profile") 
 	public String profile(@RequestBody Map<String,Object> map, HttpSession session) {
 		System.out.println(map.get("memberid"));
 		
@@ -172,5 +212,14 @@ public class MemberController_JSON {
 		
 		
 	}
+	//회원정보 수정 (관리자페이지)
+	@PostMapping("memberlistupdate")
+	public String memberlistUpdate(@RequestBody Map<String,Object> map) {
+		memberService.updatememberList(map);
+		
+		return "";
+	}
+	
+	
 	
 }

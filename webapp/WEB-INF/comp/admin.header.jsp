@@ -10,6 +10,8 @@
             <div class="admin-menu-dagger"><a href="admin.member">회원 관리</a></div>
             <div class="admin-menu-dagger"><a href="admin.article">게시글 관리</a></div>
             <div class="admin-menu-dagger"><a href="admin.reply">댓글 관리</a></div>
+            <div class="admin-menu-dagger"><a href="admin.auth">권한 관리</a></div>
+            
             <div class="admin-menu-dagger"><a href="admin.ajaxTester">AJAX 테스트툴</a></div>
             <div class="admin-menu-dagger"><a href="admin.kmdb">KMDb API</a></div>
         </div>
