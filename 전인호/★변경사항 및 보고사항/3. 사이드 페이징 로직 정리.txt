@@ -1,0 +1,42 @@
+1. 전체검색으로부터 사이드 페이지를 한꺼번에 추출할 카운트 정보가 없음 
+
+2. private static final ExecutorService executor = new ThreadPoolExecutor(
+    		corePoolSize,
+    		maxPoolSize,
+    		keepAliveTime,
+    	    TimeUnit.SECONDS,
+    	    new ArrayBlockingQueue<Runnable>(queueCapacity),
+    	    Executors.defaultThreadFactory(),
+    	    new ThreadPoolExecutor.CallerRunsPolicy() // 처리 실패 시 main thread에서 실행
+     );
+비동기 작업을 위한 ExecutorService 객체 생성
+
+
+3비동기 방식으로 한꺼번에 처리 하는 로직으로 구성. 
+
+――――――――――――――――――――――――――――――――――――――――――――――
+예를들어 ) 
+movie01_sideInformation.add(
+				//mediurlEncodingResult(walker, paramMap, request, response, result_noticeUrl, encodeAnd, orderValue, medi_code, searchCol_rt_core_harm_rsn_code3, "내용정보표시항목3")
+				cachedSideFilter(searchStr, walker, paramMap, request, response, result_noticeUrl, encodeAnd, orderValue, medi_code, searchCol_rt_core_harm_rsn_code3, "내용정보표시항목3")					
+);
+――――――――――――――――――――――――――――――――――――――――――――――
+이건 기존의 소스인데, cachedSideFilter 메서드 (캐싱)을 도입한 뒤의 메서드.
+
+
+위 메서드를 
+――――――――――――――――――――――――――――――――――――――――――――――
+movie01Futures.add(asyncCachedFilter(searchStr, walker, paramMap, request, response, result_noticeUrl, encodeAnd, orderValue, medi_code, searchCol_ori_title, "원제명"));
+――――――――――――――――――――――――――――――――――――――――――――――
+메서드로 구성해서, 비동기 처리하도록 수정함. 
+
+
+
+
+비동기 처리 시, 문제점 
+  - 쓰레드 다운되는 문제점 개선  
+  - RaceCondition 개선
+
+
+ 그리고 캐싱작업 메모에다가 아래 메모 추가할것.
+   - 최신 DB 업데이트가 있다면 캐싱정보 삭제되는 기능 제공하거나 or 캐시를 자동으로 비우게 해야함.  -> 라이브러리 사용

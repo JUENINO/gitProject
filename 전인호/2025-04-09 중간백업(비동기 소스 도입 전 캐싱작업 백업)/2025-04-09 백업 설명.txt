@@ -1,0 +1,13 @@
+캐싱 작업 도입으로 인해
+ video01_sideInformation.add(
+							//mediurlEncodingResult(walker, paramMap, request, response, result_noticeUrl, encodeAnd, orderValue, medi_code, searchCol_ori_title, "원제명")
+							cachedSideFilter(searchStr, walker, paramMap, request, response, result_noticeUrl, encodeAnd, orderValue, medi_code, searchCol_ori_title, "원제명")
+					);
+이와 같은 기존의 mediurlEncodingResult 메서드를 주석 처리하고 cachedSideFilter 메서드로 변경하여 캐싱구조 도입을 했다.
+-> 여기서 이제 이 소스를 전부 다 지우고, 
+video01Futures.add(asyncCachedFilter(searchStr, walker, paramMap, request, response, result_noticeUrl, encodeAnd, orderValue, medi_code, searchCol_ori_title, "원제명"));
+ 이런 소스처럼, 비동기작업이 진행되도록 메서드의 외형이 많이 바꼈는데, 이 소스들을 도입하기 전에 일단 캐싱 구조도입이 끝난 SearchController.java를 중간점검겸 백업. 
+
+
+ 현재 movie01_sideInformation는 기존 주석 처리 후, 비동기 소스로 변경해놓았고, 
+  이제는 video01_sideInformation를 변경하기 전에 한번 백업한다. 

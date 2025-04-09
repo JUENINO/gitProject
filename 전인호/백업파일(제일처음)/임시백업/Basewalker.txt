@@ -1,0 +1,105 @@
+package egovframework.pcn.base;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import egovframework.kmrb.common.service.CommonDownloadService;
+import egovframework.kmrb.common.service.CommonService;
+
+/**
+ * 비즈니스로직을 수행하는 기본 클래스.
+ * 생성되는 Controller 들은 이 클래스를 상속받아서 구현하도록 한다. 
+ * @author PCN
+ *
+ */
+public class BaseWalker extends Walker {
+	
+	/** commonService */
+    @Resource(name = "commonService")
+    private CommonService commonService;
+    
+	/** commonDownloadService */
+    @Resource(name = "commonDownloadService")
+    private CommonDownloadService commonDownloadService;    
+    
+	/**
+	 * 20170906 generalCasebookFileDown.do 추가
+	 * 사용자 권한을 체크한다.
+	 * @return 권한 여부
+	 */	
+	@Override 
+	public String checkPermission() {
+		String result = null;
+		try {
+		if(!(request.getRequestURI().equals("/login/login_proc.do")||request.getRequestURI().equals("/login/logout.do")
+					||request.getRequestURI().equals("/ircv/popup/af_b5.do")||request.getRequestURI().equals("/ircv/popup/af_b7.do")
+					||request.getRequestURI().equals("/generalFileDown.do")	||request.getRequestURI().equals("/generalBicFileDown.do")
+					|| request.getRequestURI().equals("/adm/adm04/popup/iadml021.do") || request.getRequestURI().equals("/adm/adm04/iadml021_idChk.do")
+					|| request.getRequestURI().equals("/adm/adm04/iadml021_insert.do") || request.getRequestURI().equals("/adm/adm04/popup/find_proc.do")
+					|| request.getRequestURI().equals("/adm/adm04/popup/find_id_view.do")|| request.getRequestURI().equals("/adm/adm04/popup/find_passwd.do")
+					|| request.getRequestURI().equals("/tms/main/main.do") || request.getRequestURI().equals("/tms/common/login.do")
+					|| request.getRequestURI().equals("/generalCasebookFileDown.do")
+					))
+		{
+			Map admin = (Map)session.getAttribute("member");
+		
+			if (isNull(admin)) {	   	 		   
+				if( (request.getRequestURI()).substring(0, 4).equals("/tms") ) return "redirect:/tms/main/main.do";
+				else if( request.getRequestURI().equals("/board.do") ) return "redirect:/login/login.do?move_board_yn=Y";
+				else return returnMessageRedirect("오랫동안 사용하지 않아 세션이 종료되었습니다. 로그인 해주세요", "/login/login.do");
+			}
+	        this.session.setAttribute("TopMenu", TopMenu(this.request));
+	        this.session.setAttribute("SubMenu", SubMenu(this.request));
+		}
+		
+		
+		
+
+		String userIp = request.getRemoteClientIp();
+	    //String userIp = (String)jsonData1.get("userIP");
+		String userId = "";
+		String userSesskey = request.getSession().getId();
+		Map member = (Map)request.getSession().getAttribute("member");
+		Map userInfoparamMap = new HashMap();
+		
+		if(!isNull(member)){
+			userId = (String)member.get("USER_ID");
+			//System.out.println(member.toString());
+			
+			String div_code = (String)member.get("USER_AUTY_DIV_CODE");
+			
+			if(div_code.equals("11") || div_code.equals("12") || div_code.equals("13") || div_code.equals("14") || div_code.equals("15") || div_code.equals("16") || div_code.equals("18") || div_code.equals("19") || div_code.equals("20") || div_code.equals("21") || div_code.equals("22")) {
+
+				userInfoparamMap.put("USER_ID", userId);					//현재 접속되어 있는 유저 아이디
+				userInfoparamMap.put("USER_IP", userIp);					//현재 접속된ip
+				userInfoparamMap.put("SESS_KEY", userSesskey);				//현재 세션 키
+			
+				 HashMap<String,String> userInfo = commonDownloadService.selectUserIDChk(userInfoparamMap);
+				 
+				 String dbuserIp = userInfo.get("USER_IP");					
+				 String dbuserId = userInfo.get("USER_ID");
+				 String dbsessKey = userInfo.get("SESS_KEY"); 
+				 String dbsessKey2 = userInfo.get("SESS_KEY_SIP");
+
+				 if(!(dbuserIp.equals(userIp) && dbuserId.equals(userId) && dbsessKey.equals(userSesskey) && dbsessKey2.equals(userSesskey))){
+					 //System.out.println("로그아웃");
+					 request.getSession().invalidate();
+					 return returnMessageRedirect("세션이 종료되었습니다. 로그인 해주세요", "/login/login.do");
+				 }			 
+				
+			}
+			 
+		}
+		
+		
+		} catch (Exception e) {
+			e.printStackTrace();	
+			result = "checkPermission 초기화 중 에러가 발생 하였습니다.";
+		}
+		return result;
+	}
+	
+	
+}

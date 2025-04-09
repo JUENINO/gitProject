@@ -1,0 +1,3 @@
+1. newOpin01 메서드 삭제 
+2. 상단에 레거시(옛날 통합검색 로직)삭제
+3. Collections.sort(file01_sideInformation, new sideMenuCntComparator()); 부분 로직의 위치가 애매하게 있어서, 모든 if문 작업 끝난 뒤 실행되도록 맨 밑으로  이동 

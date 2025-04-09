@@ -1,0 +1,66 @@
+요청사항 - 기능
+  1. 검색조건으로 우선순위/단어별로 무엇이 검색이 되어야하는지 논의를 많이함
+  2. 통합 결과 -
+  
+
+1. detailSearch_resultLine = 10 
+   - 검색결과 수 
+2. detail_visibleChk 
+   - 상세검색 체크 유무
+   - 기본적으로 기본값을  N으로 줘서 널포인트 방지  
+3.  isPaging
+     --> 첫번째 컨트롤러 진입 시, 페이징은 N으로 셋팅 
+4.  isSearch
+    --> 메서드 내 무조건 Y로 값을 넣어줌 
+    --> 결론적으로 그냥 최초의 화면에서는 '결과내 재검색'을 하지 못하도록, 이 변수값을 수시로 체크하는중 (비효율적) 
+    --> 개선필요
+
+
+tabClickChkOk
+sideMenuClickChk
+
+
+        [param] searchGubun : All
+	[param] searchStr : 해리포터
+	[param] typoSearchStr : 
+	[param] typoChk : 
+	[param] hotkeywordSearchStr : 
+	[param] hotkeywordChk : 
+	[param] suggestionSearchStr : 
+	[param] suggestionChk : 
+	[param] grade_name_radioChk : 
+	[param] rt_std_radioChk : 
+	[param] autocompleteChk : 
+	[param] result_re_search_chk : N
+	[param] movie01_sideInformation_forResearch : 
+	[param] video01_sideInformation_forResearch : 
+	[param] ad01_sideInformation_forResearch : 
+	[param] perform01_sideInformation_forResearch : 
+	[param] opin01_sideInformation_forResearch : 
+	[param] file01_sideInformation_forResearch : 
+	[param] img01_sideInformation_forResearch : 
+	[param] moni01_sideInformation_forResearch : 
+	[param] movie01_historySearchQuery : 
+	[param] video01_historySearchQuery : 
+	[param] ad01_historySearchQuery : 
+	[param] perform01_historySearchQuery : 
+	[param] img01_historySearchQuery : 
+	[param] file01_historySearchQuery : 
+	[param] opin01_historySearchQuery : 
+	[param] moni01_historySearchQuery : 
+	[param] detail_visibleChk : N
+	[param] detail_kindChk : common
+	[param] detailSearch_date : gradedate
+	[param] detailSearch_day : setDate
+	[param] period_start : 
+	[param] period_end : 
+	[param] tabClickChk : 0
+	[param] sideMenuClickChk : 0
+	[param] resultChk : 
+	[param] sidetotalUrl : 
+	[param] sideMenuNm : 
+	[param] limit : 
+	[param] cPage : 
+	[param] orderValue : orderRelevance
+
+

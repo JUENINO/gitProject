@@ -1,0 +1,208 @@
+
+1. 메인 실행 메서드
+			/////////////////////////////////////////// 자체등급분류 시작
+			/////////////////////////////////////////// ()///////////////////////////////////////////////////////////////////////////////////////////////////
+			
+			// rt_master 검색
+			ott01(walker, paramMap, request, response);
+
+			// report_mng 검색
+			ott_report(walker, paramMap, request, response);
+			
+			
+			/////////////////////////////////////////// 자체등급분류 끝
+			/////////////////////////////////////////// ()///////////////////////////////////////////////////////////////////////////////////////////////////
+
+2. 
+	// 자체등급분류
+			if (((String) paramMap.get("resultChk")).equals("ott01") || ((String) paramMap.get("resultChk")).equals("ott01Side")) {
+				// rt_master 검색
+				ott01(walker, paramMap, request, response);
+
+				// report_mng 검색
+				ott_report(walker, paramMap, request, response);
+				
+				// 총 개수 
+				int ott01_cnt = (Integer) ((Map<String, Object>) walker.getValue("ott01")).get("total_count");
+				int ott_report_cnt = (Integer) ((Map<String, Object>) walker.getValue("ott_report")).get("total_count");
+				
+				total = ott01_cnt + ott_report_cnt;
+			}
+
+
+ 3. 
+  // 자체등급분류 
+			if (((String) paramMap.get("resultChk")).equals("video01Side")) {
+				video01(walker, paramMap, request, response);
+				sideMenuURLEncodingFunc(request, response, walker, paramMap, (String) paramMap.get("sidetotalUrl"));
+				/****************************
+				 * 상세검색을 끄든 뭘하든 마지막의 검색조건으로 사이드메뉴의 내용을 볼 수 있도록 하는 로직 시작
+				 *******************************************************/
+				String realSideUrl = "";
+				ListWrapper recentSearchResult = (ListWrapper) walker.getValue("video01_sideInformation");
+				for (int i = 0; i < recentSearchResult.getList().size(); i++) {
+
+					if (((Map<String, Object>) recentSearchResult.getList().get(i)).get("menuName")
+							.equals((String) paramMap.get("sideMenuNm"))) {
+						realSideUrl = (String) ((Map<String, Object>) recentSearchResult.getList().get(i))
+								.get("totalSideUrl");
+					}
+				}
+				sideMenuURLEncodingFunc(request, response, walker, paramMap, realSideUrl);
+				/****************************
+				 * 상세검색을 끄든 뭘하든 마지막의 검색조건으로 사이드메뉴의 내용을 볼 수 있도록 하는 로직 끝
+				 *******************************************************/
+				total = (Integer) paramMap.get("sidePagingResultCnt");
+				paramMap.put("sideMenuNm", (String) paramMap.get("sideMenuNm"));
+			}
+
+
+  4.
+   	}else if (result_Url
+						.equals("http://192.168.11.242:7577/search5?select=*&from=rt_master.rt_master&where=")) {
+					String originalHistoryQuery = (String) paramMap.get("ott01_sideInformation_forResearch");
+					String firstparsing = originalHistoryQuery.replaceAll("\\[|\\]", "");
+					String new_totalUrl = "";
+					String[] secondparsing = firstparsing.split("},");
+					for (String secondparsingStr : secondparsing) {
+						String thirdparsing = secondparsingStr.replaceAll("\\{|\\}", "");
+						String[] thirdparsingArrays = thirdparsing.split("\\, ");
+						List<String> finalparsingHistoryQuery = Arrays.asList(thirdparsingArrays);
+						// 이전쿼리와 메뉴명의 인덱스번호를 찾는 로직 시작!
+						int i = 0;
+						int historyIndexNum = 0;
+						int menuNameIndexNum = 0;
+						for (String preciseStr : finalparsingHistoryQuery) {
+							// System.out.println("이것이 바로 속성명이 뭐있는지 확인 가능 한 반복문
+							// : " + preciseStr.substring(0,
+							// preciseStr.indexOf("=")));
+							if ((preciseStr.substring(0, preciseStr.indexOf("=")).trim())
+									.equals("historySideSearchQuery")) {
+								historyIndexNum = i;
+							}
+							if ((preciseStr.substring(0, preciseStr.indexOf("=")).trim()).equals("menuName")) {
+								menuNameIndexNum = i;
+							}
+							i++;
+						}
+						// 이전쿼리와 메뉴명의 인덱스번호를 찾는 로직 끝!
+						if (finalparsingHistoryQuery.get(menuNameIndexNum)
+								.substring(finalparsingHistoryQuery.get(menuNameIndexNum).indexOf("=") + 1)
+								.equals(str)) {
+							total_url = finalparsingHistoryQuery.get(historyIndexNum)
+									.substring(finalparsingHistoryQuery.get(historyIndexNum).indexOf("=") + 1)
+									+ encodeAnd + "(" + searchCol + ")";
+							historySideSearchQuery = finalparsingHistoryQuery.get(historyIndexNum)
+									.substring(finalparsingHistoryQuery.get(historyIndexNum).indexOf("=") + 1)
+									+ encodeAnd + "(" + searchCol + ")";
+						}
+					}
+				}
+
+
+5. 
+	} else if (medi_code.equals("RT_STTS_CD%20%3D%27E%27")) {
+					// ott01 자체등급분류
+					String originalHistoryQuery = (String) paramMap.get("ott01_sideInformation_forResearch");
+					String firstparsing = originalHistoryQuery.replaceAll("\\[|\\]", "");
+					String new_totalUrl = "";
+					String[] secondparsing = firstparsing.split("},");
+					for (String secondparsingStr : secondparsing) {
+						String thirdparsing = secondparsingStr.replaceAll("\\{|\\}", "");
+						String[] thirdparsingArrays = thirdparsing.split("\\, ");
+						List<String> finalparsingHistoryQuery = Arrays.asList(thirdparsingArrays);
+						// 이전쿼리와 메뉴명의 인덱스번호를 찾는 로직 시작!
+						int i = 0;
+						int historyIndexNum = 0;
+						int menuNameIndexNum = 0;
+						for (String preciseStr : finalparsingHistoryQuery) {
+							// System.out.println("이것이 바로 속성명이 뭐있는지 확인 가능 한 반복문
+							// : " + preciseStr.substring(0,
+							// preciseStr.indexOf("=")));
+							if ((preciseStr.substring(0, preciseStr.indexOf("=")).trim())
+									.equals("historySideSearchQuery")) {
+								historyIndexNum = i;
+							}
+							if ((preciseStr.substring(0, preciseStr.indexOf("=")).trim()).equals("menuName")) {
+								menuNameIndexNum = i;
+							}
+							i++;
+						}
+						// 이전쿼리와 메뉴명의 인덱스번호를 찾는 로직 끝!
+						if (finalparsingHistoryQuery.get(menuNameIndexNum)
+								.substring(finalparsingHistoryQuery.get(menuNameIndexNum).indexOf("=") + 1)
+								.equals(str)) {
+							total_url = finalparsingHistoryQuery.get(historyIndexNum)
+									.substring(finalparsingHistoryQuery.get(historyIndexNum).indexOf("=") + 1)
+									+ encodeAnd + "(" + medi_code + encodeAnd + searchCol + ")";
+							historySideSearchQuery = finalparsingHistoryQuery.get(historyIndexNum)
+									.substring(finalparsingHistoryQuery.get(historyIndexNum).indexOf("=") + 1)
+									+ encodeAnd + "(" + medi_code + encodeAnd + searchCol + ")";
+						}
+					}
+				} else if (medi_code.equals("RPTP_MNG_SE%20%3D%27B%27%20OR%20%28RPTP_MNG_SE%20%3D%27A%27%20AND%20PRFS_TEAM%20not%20in%7B%7D%29")) {
+					// ott_report 자체등급분류
+					String originalHistoryQuery = (String) paramMap.get("ott_report_sideInformation_forResearch");
+					String firstparsing = originalHistoryQuery.replaceAll("\\[|\\]", "");
+					String new_totalUrl = "";
+					String[] secondparsing = firstparsing.split("},");
+					for (String secondparsingStr : secondparsing) {
+						String thirdparsing = secondparsingStr.replaceAll("\\{|\\}", "");
+						String[] thirdparsingArrays = thirdparsing.split("\\, ");
+						List<String> finalparsingHistoryQuery = Arrays.asList(thirdparsingArrays);
+						// 이전쿼리와 메뉴명의 인덱스번호를 찾는 로직 시작!
+						int i = 0;
+						int historyIndexNum = 0;
+						int menuNameIndexNum = 0;
+						for (String preciseStr : finalparsingHistoryQuery) {
+							// System.out.println("이것이 바로 속성명이 뭐있는지 확인 가능 한 반복문
+							// : " + preciseStr.substring(0,
+							// preciseStr.indexOf("=")));
+							if ((preciseStr.substring(0, preciseStr.indexOf("=")).trim())
+									.equals("historySideSearchQuery")) {
+								historyIndexNum = i;
+							}
+							if ((preciseStr.substring(0, preciseStr.indexOf("=")).trim()).equals("menuName")) {
+								menuNameIndexNum = i;
+							}
+							i++;
+						}
+						// 이전쿼리와 메뉴명의 인덱스번호를 찾는 로직 끝!
+						if (finalparsingHistoryQuery.get(menuNameIndexNum)
+								.substring(finalparsingHistoryQuery.get(menuNameIndexNum).indexOf("=") + 1)
+								.equals(str)) {
+							total_url = finalparsingHistoryQuery.get(historyIndexNum)
+									.substring(finalparsingHistoryQuery.get(historyIndexNum).indexOf("=") + 1)
+									+ encodeAnd + "(" + medi_code + encodeAnd + searchCol + ")";
+							historySideSearchQuery = finalparsingHistoryQuery.get(historyIndexNum)
+									.substring(finalparsingHistoryQuery.get(historyIndexNum).indexOf("=") + 1)
+									+ encodeAnd + "(" + medi_code + encodeAnd + searchCol + ")";
+						}
+					}
+
+
+
+
+
+6. 
++ "%7B%22ori_title%22%3A%7B%22length%22%3A512%2C%22begin%22%3A%22%3Cb%20style%3D'%20background%3A%20yellow%3B%20'%3E%22%2C%20%22end%22%3A%22%3C%2Fb%3E%22%7D%7D"
+					+ "%2C"
+부분을 삭제하심.
+  -> 영화매체에서의 ori_title에 대한 하이라이트 지정 부분. 
+
+
+
+7. 
++ "%2C"
+					+ "%7B%22ori_title%22%3A%7B%22length%22%3A512%2C%22begin%22%3A%22%3Cb%20style%3D'%20background%3A%20yellow%3B%20'%3E%22%2C%20%22end%22%3A%22%3C%2Fb%3E%22%7D%7D"
+--> 이것도 비디오 매체에서의 ori_title에 관한 부분을 하이라이팅 제거. 
+
+
+ 그 외 모든 매체 다 제거함
+
+
+
+8. 	if (o1.get("total_side_page_count") == null || o2.get("total_side_page_count") == null) return 0;
+ 	// null 체크 추가
+
+

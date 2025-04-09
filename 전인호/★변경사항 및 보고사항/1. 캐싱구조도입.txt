@@ -1,0 +1,92 @@
+
+0. 우측에 매체별 컬럼별로 사이드메뉴 추출하는 로직이 반복되고 있고, API를 많이 사용하므로 캐싱구조 도입. 
+    ex) mediurlEncodingResult 메서드, urlEncodingResult 메서드 
+
+1. 캐싱구조를 도입하여 같은 API 호출의 반복을 줄이는 게 목표 (자바 1.7버전 기준으로 작성)
+
+
+   (1) 소스 최상단에 아래와 같은 캐싱 임시 테이블을 선언.
+
+     /* 최적화 작업1 -  캐싱 도입 */
+    //private static final ConcurrentHashMap<String, Map<String, Object>> filterCache = new ConcurrentHashMap<String, Map<String, Object>>();
+      private static final Map<String, Map<String, Object>> filterCache = Collections.synchronizedMap(
+    	    new LinkedHashMap<String, Map<String, Object>>(1000, 0.75f, true) {
+    	        protected boolean removeEldestEntry(Map.Entry<String, Map<String, Object>> eldest) {
+    	            return size() > 1000;
+    	        }
+    	    }
+    );
+ 
+========================================================================================================
+
+    (2)  소스 최하단에  캐시 로직을 담고있는 cachedSideFilter 메서드 도입     
+
+     // 캐시 핵심로직
+		private Map<String, Object> cachedSideFilter(
+			    String searchStr,
+			    Walker walker,
+			    Map<String, Object> paramMap,
+			    HttpServletRequest request,
+			    HttpServletResponse response,
+			    String result_noticeUrl,
+			    String encodeAnd,
+			    String orderValue,
+			    String medi_code,
+			    String searchCol,
+			    String columnName
+			) throws Exception {
+			    String cacheKey = medi_code + "|" + searchStr + "|" + columnName + "|" +  searchCol;
+			    System.out.println("@@@@@@@cacheKey : " + cacheKey );
+			    if (filterCache.containsKey(cacheKey)) {
+			    	System.out.println("[캐시 HIT] " + cacheKey);
+			        System.out.println("[캐시 SIZE] " + filterCache.size());
+			        return filterCache.get(cacheKey);
+			    } else {
+			    	Map<String, Object> result = null;
+			    	System.out.println("[캐시 MISS] " + cacheKey);
+			    	if(!encodeAnd.equals("")){
+				        result = mediurlEncodingResult(
+				            walker, paramMap, request, response,
+				            result_noticeUrl, encodeAnd, orderValue, medi_code,
+				            searchCol, columnName
+				        );
+			    	} else {
+				        result = urlEncodingResult(
+				        		 walker, paramMap, request, response,
+				        		 result_noticeUrl, orderValue, searchCol,
+				        		 columnName
+				        );
+			    	}
+			        
+			        filterCache.put(cacheKey, result);
+			        // 캐시 상태 출력
+			        /*
+			        System.out.println("[캐시 INSERT] " + cacheKey);
+			        System.out.println("[현재 캐시 SIZE] " + filterCache.size());
+			        System.out.println("[현재 캐시 키 목록]");
+			        for (String key : filterCache.keySet()) {
+			            System.out.println(" - " + key);
+			        }
+			        */
+			        return result;
+			    }
+			}
+========================================================================================================
+    (3) 
+        기존에 사용했던 
+         	mediurlEncodingResult(walker, paramMap, request, response, result_ott01Url, encodeAnd, orderValue, medi_code, searchCol, "원제명") 
+	메서드를 아래와 같은 소스로 캐싱 테이블을 사용하도록 변경함 
+ 	        cachedSideFilter(searchStr, walker, paramMap, request, response, result_ott01Url, encodeAnd, orderValue, medi_code, searchCol, "원제명") 
+
+
+
+========================================================================================================
+
+
+
+
+
+
+
+
+

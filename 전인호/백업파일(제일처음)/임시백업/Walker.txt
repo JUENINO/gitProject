@@ -1,0 +1,1213 @@
+package egovframework.pcn.base;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+
+import javax.annotation.Resource;
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpSession;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.validation.FieldError;
+import org.springmodules.validation.commons.DefaultBeanValidator;
+
+import egovframework.pcn.base.IConstants;
+import egovframework.pcn.http.wrapper.MultipartRequestWrapper;
+import egovframework.pcn.http.wrapper.RequestWrapper;
+import egovframework.pcn.waf.mvc.MessageBox;
+import egovframework.pcn.waf.util.FileUploadUtil;
+
+import egovframework.rte.fdl.property.EgovPropertyService;
+import egovframework.rte.cmmn.EgovMessageSource;
+
+import com.oreilly.servlet.multipart.DefaultFileRenamePolicy;
+import com.oreilly.servlet.MultipartRequest;
+
+import com.pcn.common.util.ListWrapper;
+import com.pcn.common.util.StringUtil;
+import com.pcn.common.util.TypeConvertUtil;
+
+import egovframework.pcn.netAccess.NetAccess;
+
+import egovframework.kmrb.login.service.impl.LoginDAO;
+
+/**
+ * 비즈니스로직을 수행하는 기본 클래스.
+ * 생성되는 Controller 들은 이 클래스를 상속받아서 구현하도록 한다.
+ * @author PCN
+ *
+ */
+public class Walker implements IConstants {
+
+
+	@Resource(name="LoginDAO")
+	private LoginDAO LoginDAO;
+
+	/** EgovPropertyService */
+    @Resource(name = "propertiesService")
+    public EgovPropertyService propertiesService;
+
+    /** EgovMessageSource */
+    @Resource(name="egovMessageSource")
+    public EgovMessageSource egovMessageSource;
+
+    /** Validator */
+    @Resource(name = "beanValidator")
+	public DefaultBeanValidator beanValidator;
+
+    /** logger */
+    private final Log logger = LogFactory.getLog(getClass());
+
+    /** 사이트이름 */
+    public String SITE_NM = "";
+    /** 사이트 URL */
+    public String SITE_URL = "";
+    /** 파일저장 디렉토리     */
+    public String uploadDirectory = "";
+    /** 파일 업로드 최대 사이즈 */
+    public long fileUploadMaxSize = 0L;
+    /** charset  */
+    public String charset = "";
+    /** 첨부 가능 확장자 */
+    public String fileUploadAllowFileExt = "";
+    /** 인코딩 여부 */
+    public String encoding = "";
+
+    public HttpSession session;
+	public RequestWrapper request;
+    public HttpServletResponse response;
+
+
+	/**
+	 * request 객체를 Wrapper로 감싼다.
+	 * 권한을 체크 한다.
+	 * @param request
+	 * @param response
+	 * @return String
+	 * @throws ServletException
+	 */
+	public String init(HttpServletRequest request, HttpServletResponse response) throws ServletException {
+		try {
+			if (this.request == null || this.request.getRequest() != request) {
+				//네트워크 연결
+	        	String network_yn = propertiesService.getString("network_yn");
+	        	if ("Y".equals(network_yn)) {
+	        		//logger.info("네트워크 연결 START : " + NetAccess.instance);
+	        		NetAccess.getInstance(propertiesService.getString("network_path"), propertiesService.getString("network_chkfile"));
+	        		//logger.info("네트워크 연결 END : " + NetAccess.instance);
+	        	}
+
+				SITE_NM = propertiesService.getString("SITE_NM");
+				SITE_URL = propertiesService.getString("SITE_URL");
+				uploadDirectory = propertiesService.getString("uploadDirectory");
+				fileUploadMaxSize = propertiesService.getLong("file-upload-max-size");
+				charset = propertiesService.getString("charset");
+				encoding = propertiesService.getString("encoding");
+				fileUploadAllowFileExt = propertiesService.getString("file-upload-allow-file-ext");
+
+				// RequestWrapper 생성
+		        RequestWrapper requestWrapper = null;
+		        boolean isMultipart = FileUploadUtil.isMultipartContent(request);
+		        if (isMultipart) {
+
+			        long maxFileSize = fileUploadMaxSize;
+			        String saveDirectory = uploadDirectory;
+
+			        MultipartRequest multipartRequest = null;
+			        try {
+			        	multipartRequest = new MultipartRequest(
+								request,
+								saveDirectory,
+								(int)maxFileSize,
+								charset,
+								new DefaultFileRenamePolicy());
+
+			        	requestWrapper = new MultipartRequestWrapper(request, multipartRequest, charset, encoding);
+			        	this.request = requestWrapper;
+				        this.response = response;
+				        this.session = requestWrapper.getSession();
+
+					    	//allow files check
+			        	if (multipartRequest != null && !this.isNull(fileUploadAllowFileExt)){
+			        		String [] allowFileExts =  setAllowFileExt(fileUploadAllowFileExt);
+			        		if(allowFileExts != null){
+			        			if(!isAllowFiles(allowFileExts, multipartRequest)){
+			        				logger.warn("허용되지 않은 파일이 포함되어 있습니다.");
+			        				return returnMessagePageEx("허용되지 않은 파일이 포함되어 있습니다.");
+			        			}
+			        		}
+			        	}
+
+			        }catch(IOException e){
+			        	logger.error("MultipartRequest" + e);
+			        	e.printStackTrace();
+			        	return returnErrorPageEx("MultipartRequest 초기화 중 에러가 발생 하였습니다.");
+			        }
+
+		        } else {
+		            requestWrapper = new RequestWrapper(request, charset, encoding);
+		            this.request = requestWrapper;
+			        this.response = response;
+			        this.session = requestWrapper.getSession();
+		        }
+	    	}
+
+		} catch (Exception e) {
+			logger.error("RequestWrapper" + e);
+			e.printStackTrace();
+			return returnErrorPageEx("BaseController 초기화 중 에러가 발생 하였습니다.");
+		}
+
+		//권한 체크
+		return checkPermission();
+	}
+
+	/**
+	 * request 객체를 Wrapper로 감싼다.
+	 * 권한을 체크 한다.
+	 * @param request
+	 * @param response
+	 * @param charset
+	 * @param encoding
+	 * @return
+	 * @throws ServletException
+	 */
+	public String init(HttpServletRequest request, HttpServletResponse response, String charset, String encoding) throws ServletException {
+    	try {
+    		System.out.println("> file.encoding = " + System.getProperty("file.encoding"));
+			if (this.request == null || this.request.getRequest() != request) {
+
+				//네트워크 연결
+	        	String network_yn = propertiesService.getString("network_yn");
+	        	if ("Y".equals(network_yn)) {
+	        		//logger.info("네트워크 연결 START : " + NetAccess.instance);
+	        		NetAccess.getInstance(propertiesService.getString("network_path"), propertiesService.getString("network_chkfile"));
+	        		//logger.info("네트워크 연결 END : " + NetAccess.instance);
+	        	}
+
+				SITE_NM = propertiesService.getString("SITE_NM");
+				SITE_URL = propertiesService.getString("SITE_URL");
+				uploadDirectory = propertiesService.getString("uploadDirectory");
+				fileUploadMaxSize = propertiesService.getLong("file-upload-max-size");
+				fileUploadAllowFileExt = propertiesService.getString("file-upload-allow-file-ext");
+
+				// RequestWrapper 생성
+		        RequestWrapper requestWrapper = null;
+		        boolean isMultipart = FileUploadUtil.isMultipartContent(request);
+		        if (isMultipart) {
+
+			        long maxFileSize = fileUploadMaxSize;
+			        String saveDirectory = uploadDirectory;
+
+			        MultipartRequest multipartRequest = null;
+			        try {
+			        	multipartRequest = new MultipartRequest(
+								request,
+								saveDirectory,
+								(int)maxFileSize,
+								charset,
+								new DefaultFileRenamePolicy());
+
+			        	requestWrapper = new MultipartRequestWrapper(request, multipartRequest, charset, encoding);
+			        	this.request = requestWrapper;
+				        this.response = response;
+				        this.session = requestWrapper.getSession();
+
+					    	//allow files check
+				        if (multipartRequest != null && !this.isNull(fileUploadAllowFileExt)){
+			        		String [] allowFileExts =  setAllowFileExt(fileUploadAllowFileExt);
+			        		if(allowFileExts != null){
+			        			if(!isAllowFiles(allowFileExts, multipartRequest)){
+			        				logger.warn("허용되지 않은 파일이 포함되어 있습니다.");
+			        				return returnMessagePageEx("허용되지 않은 파일이 포함되어 있습니다.");
+			        			}
+			        		}
+			        	}
+
+			        }catch(IOException e){
+			        	logger.error("MultipartRequest" + e);
+			        	e.printStackTrace();
+			        	return returnErrorPageEx("MultipartRequest 초기화 중 에러가 발생 하였습니다.");
+			        }
+
+		        } else {
+		            requestWrapper = new RequestWrapper(request, charset, encoding);
+		            this.request = requestWrapper;
+			        this.response = response;
+			        this.session = requestWrapper.getSession();
+		        }
+	    	}
+
+		} catch (Exception e) {
+			logger.error("RequestWrapper" + e);
+			e.printStackTrace();
+			return returnErrorPageEx("BaseController 초기화 중 에러가 발생 하였습니다.");
+		}
+
+		//권한 체크
+		return checkPermission();
+	}
+
+	public String TopMenu(RequestWrapper request) throws Exception {
+	    Map paramMap = new HashMap();
+
+	    paramMap.put("user_div_code", this.session.getAttribute("user_div_code"));
+
+	    ArrayList LstMenu = (ArrayList)this.LoginDAO.getMenu(paramMap);
+
+	    String temp = "";
+	    int top_menu_count = 1;
+	    for (int i = 0; i < LstMenu.size(); i++)
+	    {
+	      paramMap = (HashMap)LstMenu.get(i);
+
+	      String menu_code = (String)paramMap.get("MENU_CODE");
+	      String menu_name = (String)paramMap.get("MENU_NAME");
+	      String parent_code = (String)paramMap.get("PARENT_CODE");
+	      String menu_url = (String)paramMap.get("MENU_URL");
+	      String menu_level = (String)paramMap.get("MENU_LEVEL");
+	      String url = (String)paramMap.get("URL");
+
+	      if (menu_level.equals("1"))
+	      {
+	        if (top_menu_count != 1) {
+	          temp = temp + "</ul>\n</li>";
+	          temp = temp + "<li>";
+	        } else {
+	          temp = temp + "<li class=\"first\"> \n";
+	        }
+
+	        temp = temp + "<a href=\"http://localhost:8080" + menu_url + "\">" + menu_name + "</a>\n";
+	        temp = temp + "<ul class=\"sub0" + top_menu_count + "\">\n";
+
+	        top_menu_count++; } else {
+	        if (!menu_level.equals("2"))
+	          continue;
+	        temp = temp + "<li><a href=\"http://localhost:8080" + url + "\">" + menu_name + "</a></li>\n";
+	      }
+	    }
+	    temp = temp + "</ul>\n</li>\n";
+
+	    return temp;
+	  }
+
+	  public String SubMenu(RequestWrapper request) throws Exception
+	  {
+	    Map paramMap = new HashMap();
+
+	    paramMap.put("user_div_code", this.session.getAttribute("user_div_code"));
+
+	    String current_url = request.getRequestURI().toString();
+	    paramMap.put("menu_type", current_url.substring(0, 4));
+
+	    ArrayList LstMenu = (ArrayList)this.LoginDAO.getSubMenu(paramMap);
+	    String temp = "";
+	    String current_2deps_menu = "";
+	    int top_menu_count = 1;
+	    int mid_menu_count = 1;
+	    for (int i = 0; i < LstMenu.size(); i++)
+	    {
+	      paramMap = (HashMap)LstMenu.get(i);
+
+	      String menu_code = (String)paramMap.get("MENU_CODE");
+	      String menu_name = (String)paramMap.get("MENU_NAME");
+	      String parent_code = (String)paramMap.get("PARENT_CODE");
+	      String menu_url = (String)paramMap.get("MENU_URL");
+	      String menu_level = (String)paramMap.get("MENU_LEVEL");
+	      String url = (String)paramMap.get("URL");
+
+	      if (menu_level.equals("1")) {
+	        if (top_menu_count != 1) {
+	          temp = temp + "</ul>\n</li>\n";
+	        }
+	        temp = temp + "<div id=\"local\" class=\"menu_warp vNav\">\n";
+	        temp = temp + "<h2>" + menu_name + "</h2>\n<ul>\n<li>\n";
+	        top_menu_count++;
+	      } else if (menu_level.equals("2")) {
+	        if (mid_menu_count != 1) {
+	          temp = temp + "</ul>\n</li>\n";
+	        }
+	        current_2deps_menu = menu_code;
+	        temp = temp + "<li>\n";
+	        temp = temp + "<a href=\"http://localhost:8080" + url + "\">" + menu_name + "</a>\n";
+	        temp = temp + "<ul>\n";
+	        mid_menu_count++; } else {
+	        if ((!menu_level.equals("3")) ||
+	          (!current_2deps_menu.equals(parent_code))) continue;
+	        temp = temp + "<li><a href=\"http://localhost:8080" + menu_url + "\">" + menu_name + "</a></li>\n";
+	      }
+
+	    }
+
+	    temp = temp + "</ul>\n</li>\n</div>";
+
+	    return temp;
+	  }
+
+	/**
+	 * 사용자 권한을 체크한다.
+	 * @return 권한 여부
+	 */
+	public String checkPermission() {
+		String result = null;
+		try {
+
+		} catch (Exception e) {
+			e.printStackTrace();
+			result = "checkPermission 초기화 중 에러가 발생 하였습니다.";
+		}
+		return result;
+	}
+
+	/**
+	 * 주어진 확장자에 첨부파일들의 확장자가 모두 포함되는지 여부. 즉 허용된 확장자를 만족시키는지 여부
+	 * @param exts 확장자. ex) new String[]{"gif","jpg","png"}
+	 * @return
+	 */
+    @SuppressWarnings("rawtypes")
+	public boolean isAllowFiles(String[] exts, MultipartRequest multipartRequest){
+		boolean isOk = true;
+		Enumeration em = multipartRequest.getFileNames();
+		while(em.hasMoreElements()){
+			String field = (String)em.nextElement();
+			File file = multipartRequest.getFile(field);
+			if(file != null){
+				String ext = getFileExt(file.getName());
+				if(ext == null)
+					continue;
+
+				boolean exists = false;
+				for(int i=0; i<exts.length; i++){
+					if (exts[i].equalsIgnoreCase(ext)){
+						exists = true;
+						break;
+		            }
+				}
+
+				if(!exists){//허용된 확장자에 존재하지 않는 경우
+					//file delete
+					file.delete();
+
+					isOk = false;
+					break;
+				}
+			}
+		}
+		return isOk;
+	}
+
+    /**
+     * 파일 확장자
+     * @param fileName
+     * @return
+     */
+    public String getFileExt(String fileName){
+    	String ext = null;
+    	int dot = fileName.lastIndexOf(".");
+        if (dot != -1) {
+            ext = fileName.substring(dot+1);
+        }
+        return ext;
+    }
+
+
+	/**
+	 * 허용 가능한 첨부파일 확장자를 '|'으로 구분하여 배열로 리턴한다.
+	 * @param allowFileExt
+	 * @return
+	 */
+	public String[] setAllowFileExt(String allowFileExt) {
+    	return StringUtil.toStringArray(allowFileExt, "|");
+    }
+
+	/**
+     * 빈 값인지 체크
+     * @param str
+     * @return
+     */
+    public boolean isNull(String str) {
+        return (str == null || "".equals(str.trim()));
+    }
+
+    /**
+     * 빈 값인지 체크
+     * @param str
+     * @return
+     */
+    public boolean isEmpty(String str) {
+        return (str == null || "".equals(str.trim()));
+    }
+
+    /**
+     * 빈 값인지 체크
+     * @param str
+     * @return
+     */
+    public boolean isNull(Object obj) {
+    	boolean ret = false;
+    	if(obj != null){
+    		if(obj.getClass().isArray()){
+    			if("[Ljava.lang.String;".equals(obj.getClass().getName())){
+    				String[] strArr = (String[])obj ;
+    				if("".equals(strArr[0].trim()) || strArr[0] == null){
+    					ret = true;
+    				}
+
+    			}
+    		}
+
+    	}else{
+    		ret = true;
+    	}
+        return ret ;
+    }
+
+    /**
+     * 널 값을 빈 문자열로 변환
+     * @param str
+     * @return
+     */
+    public String chkNull(String str) {
+    	str = (str == null) ? "" : str.trim();
+    	return str;
+    }
+
+    /**
+     * 널 값을 빈 문자열로 변환
+     * @param str
+     * @return
+     */
+    public String toBlank(String str) {
+    	str = (str == null) ? "" : str.trim();
+    	return str;
+    }
+
+    /**
+     * 널 값을 공백 문자열로 변환
+     * @param str
+     * @return
+     */
+    public String chkNullEx(String str) {
+    	str = (str == null) ? " " : str.trim();
+    	return str;
+    }
+
+    /**
+     * parameter 에 대한 GET query string을 만든다.
+     * @param paramNames
+     * @return
+     */
+    public String makeParameterQuery(String[] paramNames) {
+    	StringBuffer sb = new StringBuffer();
+    	String query = "";
+    	String s = null;
+
+	    	for(int i=0, n=0; i<paramNames.length; i++){
+	    		s = request.getParameter(paramNames[i]);
+	    		if(s != null && !"".equals(s.trim())){
+	    			try {
+						//query += "&"+paramNames[i]+"="+URLEncoder.encode(s, PcnConfig.getCharset());
+						query = sb.append("&").append(paramNames[i]).append("=").append(URLEncoder.encode(s, "utf-8")).toString();
+	    				//query = sb.append("&").append(paramNames[i]).append("=").append(s).toString();
+					} catch (UnsupportedEncodingException e) {
+						e.printStackTrace();
+					}
+	    			n++;
+	    		}
+	    	}
+
+    	return query;
+    }
+
+    /**
+     * parameter 에 대한 GET query string을 만든다.
+     * @param paramNames
+     * @return
+     */
+    public String makeParameterQuery() {
+    	StringBuffer sb = new StringBuffer();
+    	String query = "";
+    	String s = null;
+
+    	java.util.Enumeration em = request.getParameterNames();
+		while (em.hasMoreElements()) {
+			String str = (String) em.nextElement();
+
+			String val = request.getParameter(str);
+			if(!isNull(val)){
+				try {
+					//query += "&"+paramNames[i]+"="+URLEncoder.encode(s, PcnConfig.getCharset());
+					query = sb.append("&").append(str).append("=").append(URLEncoder.encode(val.trim(), "utf-8")).toString();
+    				//query = sb.append("&").append(paramNames[i]).append("=").append(s).toString();
+				} catch (UnsupportedEncodingException e) {
+					e.printStackTrace();
+				}
+			}
+		}
+
+    	return query;
+    }
+
+    /**
+     * parameter 에 대한 GET query string을 만든다.
+     * @param paramNames
+     * @return
+     */
+    public String getParameterValue(String id) {
+    	StringBuffer sb = new StringBuffer();
+    	String query = "";
+    	String s = null;
+    	String str = "";
+    	String val = "";
+    	java.util.Enumeration em = request.getParameterNames();
+		while (em.hasMoreElements()) {
+			str = (String) em.nextElement();
+			if(str.equals(id)){
+				val = request.getParameter(str);
+				return val;
+			}
+		}
+
+    	return null;
+    }
+
+
+
+    /**
+     * parameter 들을 setValue()...처리
+     * @param paramNames
+     */
+    public void setQueryValues(String[] paramNames) {
+    	String s = null;
+    	for(int i=0; i<paramNames.length; i++){
+    		s = request.getParameter(paramNames[i]);
+    		if(s != null && !"".equals(s.trim())){
+    			setValue(paramNames[i], s);
+    		}
+    	}
+    }
+
+    /**
+     * parameter 들을 setValue()...처리
+     * @param paramNames
+     */
+    @SuppressWarnings("rawtypes")
+	public void setQueryValues() {
+    	java.util.Enumeration em = request.getParameterNames();
+		while (em.hasMoreElements()) {
+			String str = (String) em.nextElement();
+
+			String val = request.getParameter(str);
+			if(!isNull(val)){
+				setValue((str), new String(val.trim()));
+			}
+		}
+
+
+    }
+
+    /**
+     * request객체의 인자들을 Map 객체에 셋팅한다.
+     * @param request
+     * @return parametersMap
+     */
+    @SuppressWarnings("rawtypes")
+	public Map getParamToMap(RequestWrapper request){
+
+		return getParamToMap(request, false);
+	}
+    /**
+     * request객체의 인자들을 HashMap 객체에 셋팅한다.
+     * @param request
+     * @return parametersMap
+     */
+    @SuppressWarnings("rawtypes")
+    public HashMap getParamToHashMap(HttpServletRequest request){
+    	return getParamToHashMap(request, false);
+    }
+
+
+    /**
+     * request객체의 인자들을 HashMap 객체에 셋팅한다. <br>
+     * 파라미터명을 대문자로 처리하고자 할 경우 추가 파라미터 설정.
+     * @param request
+     * @param convertParamNameToUpperCase 대소문자로 할 경우 true, 아무 변환도 안 할 경우 false
+     * @return parametersMap
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+    public HashMap getParamToHashMap(HttpServletRequest request, boolean convertParamNameToUpperCase){
+     Enumeration em = request.getParameterNames();
+     HashMap parametersMap = new HashMap();
+
+     String reqType = "N";
+     String cntType = request.getContentType();
+     if(!isNull(cntType))
+      if("multi".equals(cntType.substring(0, 5))){
+       reqType = "Y";
+      }
+
+     while (em.hasMoreElements()) {
+      String str = (String) em.nextElement();
+
+      String[] vals = request.getParameterValues(str);
+
+      if(vals != null && vals.length>1) {
+       parametersMap.put((convertParamNameToUpperCase ? str.toUpperCase(): str), vals);
+       if(logger.isDebugEnabled()){
+        for(int i=0; i<vals.length; i++){
+
+         if(!isEmpty(vals[i])){
+          parametersMap.put((convertParamNameToUpperCase ? str.toUpperCase(): str), new String(vals[i].trim()));
+         }
+
+         logger.debug("\t[param:array] "+str + " : " + vals[i]);
+        }
+       }
+      }else{
+       String val = "";
+       if("Y".equals(reqType)){
+        val = request.getParameter(str);
+       }else{
+        val = request.getParameter(str);
+       }
+       if(!isEmpty(val)){
+        parametersMap.put((convertParamNameToUpperCase ? str.toUpperCase(): str), new String(val.trim()));
+       }
+       logger.debug("\t[param] "+str + " : " + val);
+      }
+     }
+     //logger.println(Logger.DEBUG, "\t[param] "+parametersMap, this);
+
+     return parametersMap;
+    }
+    /**
+     * request객체의 인자들을 Map 객체에 셋팅한다. <br>
+     * 파라미터명을 대문자로 처리하고자 할 경우 추가 파라미터 설정.
+     * @param request
+     * @param convertParamNameToUpperCase 대소문자로 할 경우 true, 아무 변환도 안 할 경우 false
+     * @return parametersMap
+     */
+    @SuppressWarnings({ "unchecked", "rawtypes" })
+	public Map getParamToMap(RequestWrapper request, boolean convertParamNameToUpperCase){
+
+		Enumeration em = request.getParameterNames();
+
+		Map parametersMap = new HashMap();
+
+		String reqType = "N";
+		String cntType = request.getContentType();
+		if(!isNull(cntType))
+			if("multi".equals(cntType.substring(0, 5))){
+				reqType = "Y";
+			}
+
+		while (em.hasMoreElements()) {
+			String str = (String) em.nextElement();
+
+			String[] vals = request.getParameterValues(str);
+
+			if(vals != null && vals.length>1) {
+				parametersMap.put((convertParamNameToUpperCase ? str.toUpperCase(): str), vals);
+				if(logger.isDebugEnabled()){
+					for(int i=0; i<vals.length; i++){
+
+						if(!isEmpty(vals[i])){
+							parametersMap.put((convertParamNameToUpperCase ? str.toUpperCase(): str), new String(vals[i].trim()));
+						}
+						System.out.println("\t[param:array] "+str + " : "	+ vals[i]);
+						logger.debug("\t[param:array] "+str + " : "	+ vals[i]);
+					}
+				}
+			}else{
+				String val = "";
+				if("Y".equals(reqType)){
+					val = request.getParameter(str);
+				}else{
+					val = request.getParameter(str);
+				}
+				if(!isEmpty(val)){
+					parametersMap.put((convertParamNameToUpperCase ? str.toUpperCase(): str), new String(val.trim()));
+				}
+				System.out.println("\t[param] "+str + " : "	+ val);
+				logger.debug("\t[param] "+str + " : "	+ val);
+			}
+		}
+		//logger.println(Logger.DEBUG, "\t[param] "+parametersMap, this);
+		HashMap member = (HashMap)session.getAttribute("member");
+		if(member != null) {
+			parametersMap.put("user_id",(String)member.get("USER_ID"));
+			parametersMap.put("chman_yn",(String)member.get("CHMAN_YN"));
+		}
+		return parametersMap;
+	}
+
+    /**
+     * request객체의 인자들을 Properties 객체에 셋팅한다
+     * @param request
+     * @return
+     */
+    public Properties getParamToProperties(RequestWrapper request) {
+		return getParamToProperties(request, false);
+	}
+
+    /**
+     * request객체의 인자들을 Properties 객체에 셋팅한다. <br>
+     * 파라미터명을 대문자로 처리하고자 할 경우 추가 파라미터 설정.
+     * @param request
+     * @param convertParamNameToUpperCase
+     * @return
+     */
+    @SuppressWarnings("rawtypes")
+	public Properties getParamToProperties(RequestWrapper request, boolean convertParamNameToUpperCase) {
+		java.util.Enumeration em = request.getParameterNames();
+		Properties prop = new Properties();
+		while (em.hasMoreElements()) {
+			String str = (String) em.nextElement();
+
+			String val = request.getParameter(str);
+			if(!isNull(val)){
+				prop.setProperty((convertParamNameToUpperCase ? str.toUpperCase(): str), new String(val.trim()));
+				//System.out.println("\tparam=> "+str + " : "	+ val.trim());
+				logger.debug("\t[param] "+str + " : "	+ val.trim());
+			}
+		}
+		return prop;
+	}
+
+    /**
+     * 페이징 처리
+     * @param request RequestWrapper
+     * @param total 총 레코드 수
+     * @param numOfRows 페이지당 출력할 목록수
+     * @param numOfPages 출력할 페이지 개수
+     * @return int[0]:시작범위, int[1]:끝범위
+     */
+    public int[] setPageInfo(int start, int total, int numOfRows) {
+		int[] range = new int[2];
+
+	    int cPage = 1;
+	    int startPage = 1;
+	    int endPage = 1;
+	    int totalPage = 1;
+	    int numOfPages = 10;
+
+        cPage = start;
+        int startRownum =  ((cPage-1) * numOfRows) + 1;
+        int endRownum = startRownum + numOfRows - 1;
+
+        if ( total > 0) {
+            totalPage = total / numOfRows;
+            if( (total % numOfRows) > 0 ) {
+                totalPage += 1;
+            }
+
+            startPage = ((cPage - 1) / numOfPages) * numOfPages + 1;
+            endPage = (((startPage - 1) + numOfPages) / numOfPages) * numOfPages;
+
+            // 총페이지수가 계산된 마지막 페이지 번호보다 작을 경우 총 페이지수가 마지막 페이지 번호가 됨
+            if(totalPage <= endPage) {
+                endPage = totalPage;
+            }
+        } else {
+            totalPage = 1;
+            startPage = 1;
+            endPage = 1;
+        }
+
+        range[0] = startRownum;
+        range[1] = endRownum;
+
+	    setValue("cPage", cPage);
+        setValue("numOfRows", numOfRows);
+        setValue("numOfPages", numOfPages);
+        setValue("startPage", startPage);
+        setValue("endPage", endPage);
+        setValue("totalPage", totalPage);
+        setValue("total", total);
+
+        return range;
+    }
+
+    /**
+     * 페이징 처리
+     * @param request RequestWrapper
+     * @param total 총 레코드 수
+     * @param numOfRows 페이지당 출력할 목록수
+     * @param numOfPages 출력할 페이지 개수
+     * @return int[0]:시작범위, int[1]:끝범위
+     */
+    public int[] setPageInfo(RequestWrapper request, int total, int numOfRows, int numOfPages) {
+		int[] range = new int[2];
+
+	    int cPage = 1;
+	    int startPage = 1;
+	    int endPage = 1;
+	    int totalPage = 1;
+
+        cPage = TypeConvertUtil.convertInt(request.getParameter("cPage"), 1);
+        int startRownum =  ((cPage-1) * numOfRows) + 1;
+        int endRownum = startRownum + numOfRows - 1;
+
+        if ( total > 0) {
+            totalPage = total / numOfRows;
+            if( (total % numOfRows) > 0 ) {
+                totalPage += 1;
+            }
+
+            startPage = ((cPage - 1) / numOfPages) * numOfPages + 1;
+            endPage = (((startPage - 1) + numOfPages) / numOfPages) * numOfPages;
+
+            // 총페이지수가 계산된 마지막 페이지 번호보다 작을 경우 총 페이지수가 마지막 페이지 번호가 됨
+            if(totalPage <= endPage) {
+                endPage = totalPage;
+            }
+        } else {
+            totalPage = 1;
+            startPage = 1;
+            endPage = 1;
+        }
+
+        range[0] = startRownum;
+        range[1] = endRownum;
+
+	    setValue("cPage", cPage);
+        setValue("numOfRows", numOfRows);
+        setValue("numOfPages", numOfPages);
+        setValue("startPage", startPage);
+        setValue("endPage", endPage);
+        setValue("totalPage", totalPage);
+        setValue("total", total);
+
+        return range;
+    }
+    /**
+     * 페이징 처리
+     * @param request RequestWrapper
+     * @param total 총 레코드 수
+     * @return int[0]:시작범위, int[1]:끝범위
+     */
+	public int[] setPageInfo(RequestWrapper request, int total) {
+		return setPageInfo(request, total, 15, 10);
+	}
+
+	/**
+	 *
+	 * @param request
+     * @param total 총 레코드 수
+	 * @param numOfRows 페이지당 출력할 목록수
+     * @return int[0]:시작범위, int[1]:끝범위
+	 */
+	public int[] setPageInfo(RequestWrapper request, int total, int numOfRows) {
+		return setPageInfo(request, total, numOfRows, 10);
+	}
+
+
+
+	/**
+	 * Map객체에 null값에 대한 항목을 ""로 입력한다.
+	 * @param map
+	 * @param key
+	 */
+	@SuppressWarnings({ "unchecked", "rawtypes" })
+	public void checkNull(Map map, String key) {
+		if(map.get(key) == null){
+			map.put(key, "");
+		}
+	}
+	/**
+	 * Map객체에 null값에 대한 항목을 ""로 입력한다. defaultValue가 주어지면 해당값으로 세팅
+	 * @param map
+	 * @param key
+	 * @param defaultValue
+	 */
+	@SuppressWarnings({ "rawtypes", "unchecked" })
+	public void checkNull(Map map, String key, Object defaultValue) {
+		if(map.get(key) == null){
+			map.put(key, defaultValue!=null ? defaultValue :"");
+		}
+	}
+
+	/**
+	 * command 를 가져온다.
+	 * @return String
+	 */
+	public String getCommand() {
+		String path = request.getRequestURI();
+		int sep_index = path.lastIndexOf("/");
+
+		return path.substring(sep_index + 1).replaceAll(".do", "").toLowerCase();
+	}
+
+	/**
+	 * 파라미터값을 utf-8로 인코딩변환
+	 * @param param
+	 * @return
+	 */
+	public String getParameterUtf8(String param) {
+		String p = request.getRequest().getParameter(param);
+		String ep = "";
+		if(p != null){
+			try {
+				ep = new String(p.getBytes("utf-8"), "utf-8");
+			} catch (UnsupportedEncodingException e) {
+				logger.info(e);
+				e.printStackTrace();
+			}
+		}
+		return ep;
+	}
+
+	/**
+     * 메시지정보를 설정한 후 메시지페이지로 이동
+     * @param key
+     * @param values
+     * @param e
+     * @return
+     */
+    public String returnMessagePage(String key, Object[] values, Exception e) {
+        MessageBox mb = new MessageBox();
+        mb.setId(key);
+        mb.setMessage(egovMessageSource.getMessage(key, values));
+        mb.setException(e);
+        setMessageBox(mb);
+        return "forward:/common/message.jsp";
+    }
+
+    /**
+     * 메시지 설정
+     * @param message
+     */
+    public void setMessage(String message){
+    	String key = "MSG-998";
+        MessageBox mb = new MessageBox();
+        mb.setId(key);
+        mb.setMessage(egovMessageSource.getMessage(key, new Object[]{message}));
+        setMessageBox(mb);
+    }
+
+	/**
+     * 단순 메시지 출력
+     * @param message
+     * @return
+     */
+    public String returnMessagePageEx(String message) {
+        return returnMessagePage("MSG-999", new Object[]{message}, null);
+    }
+
+    /**
+     * 메시지 설정. 메시지박스를 띄우고 해당 경로로 이동한다.
+     * @param message 보여줄 메시지
+     * @param path    처리후 이동할 경로
+     * @return
+     */
+    public String returnMessageRedirect(String message, String path){
+        setMessage(message);
+        setValue("location", path);
+        return "forward:/common/messageRedirect.jsp";
+    }
+
+    /**
+     * 메시지 설정. 메시지박스를 띄우고 스크립트 실행
+     * @param message 보여줄 메시지
+     * @param action 처리후 함수 실행
+     * @return
+     */
+    public String returnMessageAction(String message, String action){
+        setMessage(message);
+        setValue("action", action);
+        return "forward:/common/messageRedirect.jsp";
+    }
+
+    /**
+     * 메시지정보를 설정한 후 메시지페이지로 이동
+     * @param key
+     * @return
+     */
+    public String returnMessagePage(String key) {
+        return returnMessagePage(key, null, null);
+    }
+
+    /**
+     * 메시지정보를 설정한 후 메시지페이지로 이동
+     * @param key
+     * @param values
+     * @return
+     */
+     public String returnMessagePage(String key, Object[] values) {
+         return returnMessagePage(key, values, null);
+     }
+
+     /**
+      * 메시지 설정. 메시지박스를 띄우고 부모창 해당 경로로 이동한다.
+      * @param message 보여줄 메시지
+      * @param path    처리후 이동할 경로
+      * @return
+      */
+     public String returnCloseRedirect(String message, String path){
+         setMessage(message);
+         setValue("location", path);
+         return "forward:/common/closeRedirect.jsp";
+     }
+
+     /**
+      * 메시지 설정. 메시지박스를 띄우고 부모창 reload 한다.
+      * @param message 보여줄 메시지
+      * @return
+      */
+     public String returnCloseReload(String message){
+         setMessage(message);
+         return "forward:/common/close.jsp";
+     }
+
+     /**
+      * 에러정보 설정 후 에러페이지 리턴
+      * @param key
+      * @param values
+      * @param e
+      * @return
+      */
+     public String returnErrorPage(String key, Object[] values, Exception e) {
+    	 try {
+    		 MessageBox mb = new MessageBox();
+             mb.setId(key);
+             mb.setMessage(egovMessageSource.getMessage(key, values));
+             mb.setException(e);
+             setMessageBox(mb);
+
+    	 } catch(Exception ex) {
+    		 ex.printStackTrace();
+    	 }
+
+         return "forward:/common/error.jsp";
+     }
+
+     /**
+      * 에러정보 설정 후 에러페이지 리턴
+      * @param key
+      * @param values
+      * @return
+      */
+     public String returnErrorPage(String key, Object[] values) {
+         return returnErrorPage(key, values, null);
+     }
+
+     /**
+      * 에러정보 설정 후 에러페이지 리턴
+      * @param key
+      * @return
+      */
+     public String returnErrorPage(String key) {
+         return returnErrorPage(key, null, null);
+     }
+
+     /**
+      * 에러페이지 리턴
+      * @param message
+      * @return
+      */
+     public String returnErrorPageEx(String message) {
+    	 return returnErrorPage("ERR-9999", new Object[]{message}, null);
+     }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param name
+      * @param value
+     */
+     public void setValue(String name, Object value) {
+    	 request.setAttribute(name, value);
+     }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param name
+      * @param value
+     */
+     @SuppressWarnings("rawtypes")
+	public void setValue(String name, List value) {
+    	 request.setAttribute(name, new ListWrapper(value));
+     }
+
+     @SuppressWarnings("rawtypes")
+ 	public void setValue(String name, List value, String str) {
+     	 request.setAttribute(name, value);
+      }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param name
+      * @param value
+     */
+     public void setValue(String name, boolean value) {
+    	 request.setAttribute(name, new Boolean(value));
+     }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param name
+      * @param value
+     */
+     public void setValue(String name, short value) {
+    	 request.setAttribute(name, new Short(value));
+     }
+
+     public void setValue(String name, int value) {
+    	 request.setAttribute(name, new Integer(value));
+     }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param name
+      * @param value
+     */
+     public void setValue(String name, long value) {
+    	 request.setAttribute(name, new Long(value));
+     }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param name
+      * @param value
+     */
+     public Object getValue(String name) {
+    	 return request.getAttribute(name);
+     }
+
+     /**
+      * request Attribute을 설정한다.
+      * @param messageBox
+      * @param value
+     */
+     public void setMessageBox(MessageBox messageBox) {
+    	 request.setAttribute(MESSAGE_BOX_KEY, messageBox);
+     }
+
+     /**
+      * Validator의 에러 메시지를 설정한다.
+      * @param errList
+      * @return value
+      */
+     @SuppressWarnings("rawtypes")
+	public String getValidatorErrMsg(List errList){
+
+    	 StringBuffer sb = new StringBuffer();
+
+    	 for(int i=0 ; i < errList.size() ; i++){
+ 			FieldError err = (FieldError)errList.get(i);
+ 			sb.append(i!=0?" , ":"").append(err.getDefaultMessage());
+ 		 }
+
+    	 return sb.toString();
+     }
+}
